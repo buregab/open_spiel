@@ -21,6 +21,8 @@ from __future__ import print_function
 import collections
 import random
 import numpy as np
+import os
+from absl import logging
 import tensorflow.compat.v1 as tf
 
 from open_spiel.python import rl_agent
@@ -268,6 +270,37 @@ class DQN(rl_agent.AbstractAgent):
 
     return rl_agent.StepOutput(action=action, probs=probs)
 
+  def _full_checkpoint_name(self, checkpoint_dir, name):
+    checkpoint_filename = "_".join([name, "pid" + str(self.player_id)])
+    return os.path.join(checkpoint_dir, checkpoint_filename)
+
+  def _latest_checkpoint_filename(self, name):
+    checkpoint_filename = "_".join([name, "pid" + str(self.player_id)])
+    return checkpoint_filename + "_latest"
+
+  def save(self, checkpoint_dir):
+    for name, saver in self._savers:
+      path = saver.save(
+        self._session,
+        self._full_checkpoint_name(checkpoint_dir, name),
+        latest_filename=self._latest_checkpoint_filename(name))
+      logging.info("saved to path: %s", path)
+
+  def has_checkpoint(self, checkpoint_dir):
+    for name, _ in self._savers:
+      if tf.train.latest_checkpoint(
+          self._full_checkpoint_name(checkpoint_dir, name),
+          os.path.join(checkpoint_dir,
+                       self._latest_checkpoint_filename(name))) is None:
+        return False
+    return True
+
+  def restore(self, checkpoint_dir):
+    for name, saver in self._savers:
+      full_checkpoint_dir = self._full_checkpoint_name(checkpoint_dir, name)
+      logging.info("Restoring checkpoint: %s", (full_checkpoint_dir))
+      saver.restore(self._session, full_checkpoint_dir)
+
   def add_transition(self, prev_time_step, prev_action, time_step):
     """Adds the new transition using `time_step` to the replay buffer.
 
@@ -424,6 +457,9 @@ class DQN(rl_agent.AbstractAgent):
             initialization_weights, initialization_target_weights,
             initialization_opt,
         ]))
+
+    self._savers = [("q_network", tf.train.Saver(self._variables)),
+                    ("target_q_network", tf.train.Saver(self._target_variables))]
 
   def get_weights(self):
     variables = [self._session.run(self._q_network.variables)]
