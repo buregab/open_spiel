@@ -359,6 +359,7 @@ class PolicyGradient(rl_agent.AbstractAgent):
 
   def save(self, checkpoint_dir):
     for name, saver in self._savers:
+      print("\t", name)
       path = saver.save(
           self._session,
           self._full_checkpoint_name(checkpoint_dir, name),
@@ -376,6 +377,7 @@ class PolicyGradient(rl_agent.AbstractAgent):
 
   def restore(self, checkpoint_dir):
     for name, saver in self._savers:
+      print("\t", name)
       full_checkpoint_dir = self._full_checkpoint_name(checkpoint_dir, name)
       logging.info("Restoring checkpoint: %s", (full_checkpoint_dir))
       saver.restore(self._session, full_checkpoint_dir)
